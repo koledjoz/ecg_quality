@@ -1,8 +1,8 @@
 import numpy as np
-from utils import MODEL_PATH_DICT
+from ecg_quality.utils import MODEL_PATH_DICT
 
-import tf_model
-import utils
+from ecg_quality import utils
+from ecg_quality import tf_model
 import neurokit2 as nk
 import warnings
 
@@ -30,7 +30,7 @@ class ECGQualityChecker:
 
 
 
-    def __init__(self, model:str = 'lstm2s', stride:float = 0.0, return_mode:str = 'score', thresholds:list = None, return_type:str = 'full', sampling_rate:int = 250, clean_data:bool=True):
+    def __init__(self, model:str = 'cnn2s', stride:float = 0.0, return_mode:str = 'score', thresholds:list = None, return_type:str = 'full', sampling_rate:int = 250, clean_data:bool=True):
         """
         Parameters
         --------------

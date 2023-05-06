@@ -1,8 +1,17 @@
-MODEL_PATH_DICT = {'lstm2s' : './models/LSTM2s.h5', 'cnn2s' : './models/CNN2s.h5', 'cnn5s' : './models/CNN5s.h5', 'oscnn2s' : './models/OSCNN2s.h5'}
+import os.path
+
+MODEL_PATH_DICT = {'lstm2s' : 'LSTM2s.h5', 'cnn2s' : 'CNN2s.h5', 'cnn5s' : 'CNN5s.h5', 'oscnn2s' : 'OSCNN2s.h5'}
 
 MODEL_WIN_LEN = {'lstm2s' : 2, 'cnn2s' : 2, 'cnn5s' : 5, 'oscnn2s' : 2}
 
 MODEL_THRESHOLDS = {'lstm2s' : [0.125, 0.5], 'cnn2s' : [0.1, 0.625], 'cnn5s' : [0.2, 0.525], 'oscnn2s' : [0.1, 0.7]}
+
+file_path = os.path.dirname(__file__)
+lib_path = os.path.dirname(file_path)
+
+print(__file__)
+print(file_path)
+print(lib_path)
 
 
 def get_stride_length(input_len, stride_val, sampling_rate):

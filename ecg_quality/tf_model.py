@@ -1,7 +1,10 @@
-import numpy as np
-from utils import MODEL_PATH_DICT
+import os.path
 
-import model
+import numpy as np
+from ecg_quality.utils import MODEL_PATH_DICT
+from ecg_quality import utils
+
+from ecg_quality import model
 import tensorflow as tf
 
 
@@ -14,7 +17,12 @@ class tf_model(model.Model):
 
 
         # Load the saved model from disk with the custom object scope
-        self.model = tf.keras.models.load_model(MODEL_PATH_DICT[model], compile=False)
+
+        model_path = os.path.join(utils.file_path, 'models', utils.MODEL_PATH_DICT[model])
+
+        print(model_path)
+
+        self.model = tf.keras.models.load_model(model_path, compile=False)
 
 
     def process_ecg(self, signal: list):
