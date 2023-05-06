@@ -20,7 +20,6 @@ class tf_model(model.Model):
 
         model_path = os.path.join(utils.file_path, 'models', utils.MODEL_PATH_DICT[model])
 
-        print(model_path)
 
         self.model = tf.keras.models.load_model(model_path, compile=False)
 

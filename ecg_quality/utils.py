@@ -9,9 +9,6 @@ MODEL_THRESHOLDS = {'lstm2s' : [0.125, 0.5], 'cnn2s' : [0.1, 0.625], 'cnn5s' : [
 file_path = os.path.dirname(__file__)
 lib_path = os.path.dirname(file_path)
 
-print(__file__)
-print(file_path)
-print(lib_path)
 
 
 def get_stride_length(input_len, stride_val, sampling_rate):
