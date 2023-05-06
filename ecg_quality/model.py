@@ -1,5 +1,6 @@
-class Model:
+import numpy as np
 
+class Model:
     def __int__(self, model:str):
         raise NotImplementedError('This is method of an interface, call class inheriting from this class')
 
