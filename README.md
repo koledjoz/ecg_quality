@@ -31,7 +31,9 @@ In terms of length of output, there are two return_types supported:
  -  intervals : value is returned for each window of the size stride, since the value of the quality ill not change in these
  - full : value is returned for each value in the input
 
-Models were trained on cleaned data. These data were cleaned using default NeuroKit2 ecg_clean method. The class can clean signal it is meant to process using ecg_clean. It can be specified not to do this. 
+Models were trained on cleaned data. These data were cleaned using default NeuroKit2 ecg_clean method. The class can clean signal it is meant to process using ecg_clean. Currently only default version of ecg_clean us supported. It can be specified not to do this. However, it is advised to either use this option, or to pass cleaned signal to the method. We give no guarantee about the quality of the signal if uncleaned signal is processed and no cleaning is done..  
+
+Signal processed must have frequency of 250 Hz. Signal of other frequencies is not supported as the models are not trained on such a signal.
 
 Full explanation of all the modes can be found inside the source code documentation.
 
@@ -40,7 +42,7 @@ Installation
 
 The library can be easily installed through the pip utility.
 
-		pip install ecg-quality
+    pip install ecg-quality
 
 Usage
 -------
