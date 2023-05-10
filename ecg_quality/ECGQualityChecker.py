@@ -99,6 +99,8 @@ class ECGQualityChecker:
             if thresholds is not None:
                 raise ValueError('Threshold count does not correspond to return mode')
         elif return_mode in ['binary_clean', 'binary_qrs']:
+            if type(thresholds) == float:
+                thresholds = [thresholds]
             if len(thresholds) != 1:
                 raise ValueError('Threshold count does not correspond to return mode')
             elif not 0 <= thresholds[0] <= 1.0:
@@ -189,18 +191,19 @@ class ECGQualityChecker:
             win_count[a:b] = win_count[a:b] + 1
         return self._calc_precise_scores(output, win_count)
 
-    def _get_two_value(self, scores):
-        return [0.0 if x < self.thresholds[0] else 1.0 for x in scores]
+    def _get_binary(self, scores):
+        return [1.0 if x < self.thresholds[0] else 2.0 for x in scores]
+
 
     def _get_three_value(self, scores):
 
         def mapper(val):
             if val < self.thresholds[0]:
-                return 0.0
-            elif val < self.thresholds[1]:
-                return 0.5
-            else:
                 return 1.0
+            elif val < self.thresholds[1]:
+                return 2.0
+            else:
+                return 3.0
         return [mapper(x) for x in scores]
 
     def _calc_precise_scores(self, scores, win_counts):
@@ -211,8 +214,8 @@ class ECGQualityChecker:
 
         if self.return_mode == 'score':
             return scores
-        elif self.return_mode == 'two_value':
-            return self._get_two_value(scores)
+        elif self.return_mode in ['binary_clean', 'binary_qrs']:
+            return self._get_binary(scores)
         elif self.return_mode == 'three_value':
             return self._get_three_value(scores)
 
