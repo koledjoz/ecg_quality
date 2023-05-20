@@ -30,7 +30,7 @@ class ECGQualityChecker:
 
 
 
-    def __init__(self, model:str = 'cnn2s', stride:float = 0.0, return_mode:str = 'score', thresholds:list = None, return_type:str = 'full', sampling_rate:int = 250, clean_data:bool=True):
+    def __init__(self, model:str = 'cnn2s', stride:float = 0.0, return_mode:str = 'score', thresholds:list = None, return_type:str = 'full', sampling_rate:int = 250, clean_data:bool=True, check_window_range:bool=True, window_min_range:float=0.1):
         """
         Parameters
         --------------
@@ -72,8 +72,15 @@ class ECGQualityChecker:
 
         Whether the data should be cleaned before processing. The models were trained on cleaned data so this is advised unless you already cleaned data beforehand. For cleaning, we are using neurokit2 function ecg_clean with its default settings as of version 0.2.4.
 
+        **check_window_range : bool**
 
+        Whether each window should be checked for range. If the range of signal values is not larger than the value of the window_min_range, the widow will automatically be marked as a signal of quality 3. This is temporary solution to be used because of the models inability to detect low amplitude noise
 
+        **window_min_range : float**
+
+        This is the range that is to be used if the check_window_range parameter is true. If tha difference of the minimum and maximum value in window is smaller than this difference, automatically markt he signal as of the worst quality type.
+
+check_window_range:bool=False, window_min_range:float=0.05
 
         :param model: Model to be used
         :param stride: The soze of the step of the moving window
@@ -82,6 +89,8 @@ class ECGQualityChecker:
         :param return_type: how mnay values should be returned
         :param sampling_rate: The sampling rate of the ECG signal to be processed, currently just 250 Hz is supported
         :param clean_data: Whether to clean data before processing them.
+        :param check_window_range: Whether to check each window for value range
+        :param window_min_range: What the minimum range of signal values should be in case the window min range test is done
         """
         # urobime checks vsetkych modelov
 
@@ -131,6 +140,8 @@ class ECGQualityChecker:
         self.thresholds = thresholds
         self.sampling_rate = sampling_rate
         self.clean_data = clean_data
+        self.check_window = check_window_range
+        self.min_window = window_min_range
 
     def process_signal(self, signal):
         """
@@ -161,6 +172,16 @@ class ECGQualityChecker:
         elif self.return_type == 'intervals':
             return self._process_signal_interval(signal)
 
+
+
+    def _check_window_smaller(self, window_signal):
+        minimum = np.min(window_signal)
+        maximum = np.max(window_signal)
+
+        range = maximum - minimum
+
+        return range < self.min_window
+
     def _process_signal_full(self, signal):
         if self.clean_data:
             signal = nk.ecg_clean(signal, sampling_rate=self.sampling_rate)
@@ -169,7 +190,7 @@ class ECGQualityChecker:
         win_count = np.zeros_like(signal)
 
         for win_start in range(0, len(signal)-self.input_length + 1, self.stride):
-            score = self.model.process_ecg(signal[win_start:win_start + self.input_length])
+            score = 1.0 if self._check_window_smaller(signal[win_start:win_start + self.input_length]) else self.model.process_ecg(signal[win_start:win_start + self.input_length])
             output[win_start:win_start + self.input_length] = output[win_start:win_start + self.input_length] + score
             win_count[win_start:win_start + self.input_length] = win_count[win_start:win_start + self.input_length] + 1
         return self._calc_precise_scores(output, win_count)
@@ -186,7 +207,7 @@ class ECGQualityChecker:
             a = win_start // self.stride
             b = (win_start + self.input_length) // self.stride
 
-            score = self.model.process_ecg(signal[win_start:win_start + self.input_length])
+            score = 1.0 if self._check_window_smaller(signal[win_start:win_start + self.input_length]) else self.model.process_ecg(signal[win_start:win_start + self.input_length])
             output[a:b] = output[a:b] + score
             win_count[a:b] = win_count[a:b] + 1
         return self._calc_precise_scores(output, win_count)
