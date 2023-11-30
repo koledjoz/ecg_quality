@@ -3,6 +3,9 @@ import scipy
 import numpy as np
 import math
 import neurokit2 as nk
+from scipy import signal
+import matplotlib.pyplot as plt
+import EntropyHub as eh
 
 
 def average_cross_correlation(signal, x):
@@ -10,8 +13,10 @@ def average_cross_correlation(signal, x):
     N = len(signal_array)
 
     # Create a lagged version of the signal
-    lagged_signal = signal_array[:-x]
-
+    if x != 0:
+        lagged_signal = signal_array[:-x]
+    else:
+        lagged_signal = signal_array
     # Perform element-wise multiplication and calculate the mean
     avg_corr = np.mean(signal_array[:N - x] * lagged_signal)
 
@@ -20,7 +25,7 @@ def average_cross_correlation(signal, x):
 
 class SQI_calculator():
 
-    def __int__(self, sampling_rate: int = 250):
+    def __init__(self, sampling_rate: int = 250):
         self.detectors = Detectors(sampling_rate)
         self.sampling_rate = sampling_rate
 
@@ -32,6 +37,15 @@ class SQI_calculator():
             return [x for x in self.detectors.engzee_detector(signal)
                     if 0.3 * self.sampling_rate <= x <= len(signal) - 0.1 * self.sampling_rate]
 
+    def get_SQIs(self, signal: list, bSQI_first_detector = 'wqrs', BSQI_second_detector = 'engzee', bsSQI_detector = 'engzee', eSQI_detector = 'engzee',
+                 hfSQI_dtector = 'engzee', rsdSQI_detector = 'engzee'):
+        cleaned_signal = nk.ecg_clean(signal, sampling_rate=self.sampling_rate, method='biosppy')
+
+        # entSQI je neefektivne a zle funguje
+        # takze zatial bez toho, zajtra to orapvis a mozes riesit dalej, generovat data a tak podobne
+        return self.hfSQI(signal), self.kSQI(signal), self.PiCASQI(signal), self.sSQI(signal), self.basSQI(signal), self.bsSQI(signal), self.entSQI(signal), self.pSQI(signal), self.purSQI(signal), self.hfMSQI(signal)
+
+    
     def bSQI(self, signal: list, first_detector: str = 'wqrs', second_detector: str = 'engzee'):
         r_peaks1 = self.get_peaks(signal, first_detector)
 
@@ -63,12 +77,12 @@ class SQI_calculator():
         return score
 
     def sSQI(self, signal: list):
-        return scipy.stats.skewness(signal)
+        return scipy.stats.skew(signal)
 
     def kSQI(self, signal: list):
         return scipy.stats.kurtosis(signal)
 
-    def pSQI(self, signal):
+    def pSQI(self, signal: list):
         n = len(signal)
         t = 1 / self.sampling_rate
 
@@ -101,16 +115,22 @@ class SQI_calculator():
         return self.bsSQI_inner(signal, peaks)
 
     def bsSQI_inner(self, signal, peaks):
-        out = 0.0
 
-        b, a = scipy.signal.butter(5, 1.0, self.sampling_rate, btype='low', analog=False, output='ba')
+        
+        out = 0.0
+        
+        b, a = scipy.signal.butter(5, 1.0, fs = self.sampling_rate, btype='low', analog=False, output='ba')
 
         for r in peaks:
-            rai = max(
-                signal[int(max(0, r - 0.07 * self.sampling_rate)):min(len(signal), r + 0.08 * self.sampling_rate)])
+            rai = max(signal[int(max(0, r - 0.07 * self.sampling_rate)):int(min(len(signal), r + 0.08 * self.sampling_rate))])\
+                - min(signal[int(max(0, r - 0.07 * self.sampling_rate)):int(min(len(signal), r + 0.08 * self.sampling_rate))])
+            
             bai = max(scipy.signal.lfilter(b, a,
-                                           signal[max(0, int(r - 1 * self.sampling_rate)):min(len(signal),
-                                                                                              int(r + 1 * self.sampling_rate))]))
+                                           signal[int(max(0, int(r - 1 * self.sampling_rate))):int(min(len(signal),
+                                                                                              int(r + 1 * self.sampling_rate)))])) \
+                - min(scipy.signal.lfilter(b, a,
+                                           signal[int(max(0, int(r - 1 * self.sampling_rate))):int(min(len(signal),
+                                                                                              int(r + 1 * self.sampling_rate)))]))
 
             out = out + (rai / bai)
 
@@ -134,21 +154,29 @@ class SQI_calculator():
         return self.hfSQI_inner(signal, peaks)
 
     def hfSQI_inner(self, signal, peaks):
+
+        if len(peaks) == 0:
+            return -1000
+        
         b = [1, -2, 1]
-        a = []
+        a = [1, 1, 1]
 
-        y = scipy.signal.lfilter(b, a, signal)
 
-        s = [0] * 5 + np.convolve(y, np.ones(6, dtype='float'), 'valid')
+        y = scipy.signal.convolve(signal, [1, -2, 1], mode='same')
+
+        s = np.convolve(y, [1, 1, 1, 1, 1, 1], mode='same')
+
 
         out = 0.0
         for r in peaks:
+            
             rai = max(
-                signal[int(max(0, r - 0.07 * self.sampling_rate)):min(len(signal), r + 0.08 * self.sampling_rate)])
+                signal[int(max(0, r - 0.07 * self.sampling_rate)):int(min(len(signal), r + 0.08 * self.sampling_rate))]) \
+                - min(
+                signal[int(max(0, r - 0.07 * self.sampling_rate)):int(min(len(signal), r + 0.08 * self.sampling_rate))])
 
             hi = np.mean(
-                signal[int(max(0, r - 0.28 * self.sampling_rate)):min(len(signal), r - 0.05 * self.sampling_rate)])
-
+                s[int(max(0, r - 0.28 * self.sampling_rate)):int(min(len(s), r - 0.05 * self.sampling_rate))])
             out = out + rai / hi
 
         return (1 / len(peaks)) * out
@@ -170,16 +198,16 @@ class SQI_calculator():
 
         return frequencies, power_spectrum
 
-    def spectral_moment(self, signal, order, sampling_frequency):
+    def spectral_moment(self, signal, order, sampling_freq):
 
-        freq, power = self.calculate_power_spectrum(signal, sampling_frequency)
+        freq, power = self.calculate_power_spectrum(signal, sampling_freq)
 
         return self.spectral_moment_inner(power, freq, order)
 
     def purSQI(self, signal):
-        return (self.spectral_moment(signal, 2, self.sampling_frequency) ** 2) / \
-               (self.spectral_moment(signal, 0, self.sampling_frequency)
-                * self.spectral_moment(signal, 4, self.sampling_frequency))
+        return (self.spectral_moment(signal, 2, self.sampling_rate) ** 2) / \
+               (self.spectral_moment(signal, 0, self.sampling_rate)
+                * self.spectral_moment(signal, 4, self.sampling_rate))
 
     def rsdSQI(self, signal, detector_name='engzee'):
         peaks = self.get_peaks(signal, detector_name)
@@ -195,34 +223,42 @@ class SQI_calculator():
             out = out + ri / (2 * ai)
 
         return (1 / len(signal)) * out
+        
+    def entSQI(self, signal, length = 2, tolerance = 0.2):
+        x, _, _ = eh.SampEn(signal, m=length, r=tolerance)
+        return x[-1]
 
-    def entSQI(self, signal, length, tolerance):
-        b = np.lib.stride_tricks.sliding_window_view(signal, length)
-        a = np.lib.stride_tricks.sliding_window_view(signal, length + 1)
-        amr = 0.0
-        bmr = 0.0
-        for data in a:
-            amr = amr + len(list(filter(lambda x: 0 < np.linalg.norm(data - x) <= tolerance, a))) * len(
-                signal - length - 1) ** (-1)
 
-        amr = amr * len(signal - length) ** (-1)
 
-        for data in b:
-            bmr = bmr + len(list(filter(lambda x: 0 < np.linalg.norm(data - x) <= tolerance, b))) * len(
-                signal - length - 1) ** (-1)
+    def hfMSQI(self, signal, detector_name='engzee'):
+        peaks = self.get_peaks(signal, detector_name)
+        return self.hfMSQI_inner(signal, peaks)
 
-        bmr = bmr * len(signal - length) ** (-1)
-        return -math.log(amr / bmr)
+    def hfMSQI_inner(self, signal, peaks):        
+        b, a = scipy.signal.butter(5, 40, fs = self.sampling_rate, btype='high', analog=False, output='ba')
+
+        filtered = [x**2 for x  in scipy.signal.lfilter(b, a, signal)]
+        
+        cutoff_frequency = 0.05
+        window = 'hamming'
+        normalized_cutoff = cutoff_frequency / (0.5 * self.sampling_rate)
+        filter_order = 101
+
+        fir_coeff = scipy.signal.firwin(filter_order, normalized_cutoff, window=window, fs=self.sampling_rate)
+
+        filtered = scipy.signal.lfilter(fir_coeff, 1.0, filtered)
+        sum = 0
+        for r in peaks:
+            sum = sum + np.sum(filtered[int(max(0, r - 0.07 * self.sampling_rate)):int(min(len(signal), r + 0.08 * self.sampling_rate))])
+        return sum / np.sum(filtered)
 
     def PiCASQI(self, signal, detector_name='engzee'):
         peaks = self.get_peaks(signal, detector_name)
         return self.PiCASQI_inner(signal, peaks)
 
-    def PiCASQI(self, signal, peaks: list):
-        rate = np.mean(nk.ecg_rate(peaks, sampling_rate=self.sampling_rate))
-
-        # toto su udery za minutu - z tohto ziskaj dsitance medzi nimi
-
-        t = (self.sampling_rate * 60) / rate
+    def PiCASQI_inner(self, signal, peaks: list):
+        if len(peaks) <= 1:
+            return -5
+        t = int(np.mean(np.diff(np.array(peaks))))
 
         return np.abs(average_cross_correlation(signal, t) / average_cross_correlation(signal, 0))
